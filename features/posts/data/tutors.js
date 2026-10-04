@@ -1,0 +1,73 @@
+// ข้อมูลตัวอย่าง ใช้ไปก่อนจนกว่าจะต่อ Supabase
+export const tutors = [
+  {
+    id: "1",
+    name: "พี่มายด์",
+    photo: "https://i.pravatar.cc/600?img=47",
+    subjects: ["คณิตศาสตร์", "ฟิสิกส์"],
+    levels: ["ม.ปลาย"],
+    pricePerHour: 400,
+    mode: "ออนไลน์",
+    province: "กรุงเทพฯ",
+    bio: "วิศวะจุฬาฯ ปี 4 สอนคณิต ม.ปลายมา 3 ปี เน้นทำโจทย์ให้เข้าใจ ไม่ท่องสูตร",
+  },
+  {
+    id: "2",
+    name: "ครูบอส",
+    photo: "https://i.pravatar.cc/600?img=12",
+    subjects: ["ภาษาอังกฤษ", "IELTS"],
+    levels: ["ม.ต้น", "ม.ปลาย", "มหาวิทยาลัย"],
+    pricePerHour: 600,
+    mode: "ออนไลน์/ตัวต่อตัว",
+    province: "เชียงใหม่",
+    bio: "IELTS 8.0 เคยเรียนที่อังกฤษ ช่วยเรื่อง speaking และ writing โดยเฉพาะ",
+  },
+  {
+    id: "3",
+    name: "พี่ฟ้า",
+    photo: "https://i.pravatar.cc/600?img=45",
+    subjects: ["ชีววิทยา", "เคมี"],
+    levels: ["ม.ปลาย"],
+    pricePerHour: 450,
+    mode: "ตัวต่อตัว",
+    province: "กรุงเทพฯ",
+    bio: "แพทย์ศิริราชปี 3 ติวสอบ A-Level ชีวะ เคมี มีสรุปให้ทุกบท",
+  },
+  {
+    id: "4",
+    name: "พี่ต้น",
+    photo: "https://i.pravatar.cc/600?img=33",
+    subjects: ["เขียนโปรแกรม", "Python"],
+    levels: ["ม.ปลาย", "มหาวิทยาลัย"],
+    pricePerHour: 500,
+    mode: "ออนไลน์",
+    province: "ขอนแก่น",
+    bio: "Software engineer สอน Python และพื้นฐานการเขียนโปรแกรมแบบลงมือทำจริง",
+  },
+  {
+    id: "5",
+    name: "ครูแพร",
+    photo: "https://i.pravatar.cc/600?img=32",
+    subjects: ["ภาษาไทย", "สังคมศึกษา"],
+    levels: ["ประถม", "ม.ต้น"],
+    pricePerHour: 300,
+    mode: "ตัวต่อตัว",
+    province: "นนทบุรี",
+    bio: "ครูประจำการ 5 ปี ใจเย็น สอนเด็กเล็กได้ ปูพื้นฐานการอ่านเขียน",
+  },
+  {
+    id: "6",
+    name: "พี่เจ",
+    photo: "https://i.pravatar.cc/600?img=15",
+    subjects: ["คณิตศาสตร์"],
+    levels: ["ประถม", "ม.ต้น"],
+    pricePerHour: 350,
+    mode: "ออนไลน์/ตัวต่อตัว",
+    province: "ชลบุรี",
+    bio: "ติวสอบเข้า ม.1 และ ม.4 โรงเรียนดัง มีแบบฝึกหัดให้ทำทุกสัปดาห์",
+  },
+];
+
+export function getTutor(id) {
+  return tutors.find((t) => t.id === id);
+}
