@@ -3,30 +3,49 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSaved } from "@/features/saved/context/SavedContext";
-
-const links = [
-  { href: "/", label: "ค้นหา" },
-  { href: "/saved", label: "ถูกใจ" },
-  { href: "/post", label: "ติวเตอร์" },
-  { href: "/login", label: "เข้าระบบ" },
-];
+import { useAuth } from "@/features/auth/context/AuthContext";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
   const { likedIds } = useSaved();
+  const { user, loading, logout } = useAuth();
+  const links = user?.role === "tutor"
+    ? [{ href: "/post", label: "โปรไฟล์" }, { href: "/chat", label: "แชต" }]
+    : user?.role === "student"
+      ? [{ href: "/", label: "ค้นหา" }, { href: "/saved", label: "ถูกใจ" }, { href: "/chat", label: "แชต" }]
+      : [{ href: "/", label: "ค้นหา" }, { href: "/login", label: "เข้าสู่ระบบ" }, { href: "/register", label: "สมัคร" }];
+
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
 
   return (
     <header className="sticky top-0 z-20 border-b border-rose-100 bg-white/90 backdrop-blur">
-      <nav className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
+      <nav className="relative mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
         <Link href="/" className="shrink-0 text-lg font-bold text-rose-500">
           TutorMatch
         </Link>
-        <ul className="flex gap-0.5 text-sm">
+        <button
+          type="button"
+          className="rounded-lg p-2 text-gray-700 hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 sm:hidden"
+          aria-label={menuOpen ? "ปิดเมนูนำทาง" : "เปิดเมนูนำทาง"}
+          aria-expanded={menuOpen}
+          aria-controls="primary-navigation"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          <span aria-hidden="true" className="text-xl leading-none">{menuOpen ? "×" : "☰"}</span>
+        </button>
+        <ul
+          id="primary-navigation"
+          className={`${menuOpen ? "flex" : "hidden"} absolute left-0 right-0 top-full z-30 flex-col gap-1 border-b border-rose-100 bg-white px-4 py-3 text-sm shadow-sm sm:static sm:flex sm:flex-row sm:items-center sm:gap-0.5 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none`}
+        >
           {links.map((l) => (
             <li key={l.href}>
               <Link
                 href={l.href}
-                className={`whitespace-nowrap rounded-full px-2.5 py-1.5 ${
+                className={`block whitespace-nowrap rounded-full px-3 py-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 sm:px-2.5 sm:py-1.5 ${
                   pathname === l.href ? "bg-rose-500 text-white" : "text-gray-600 hover:bg-rose-50"
                 }`}
               >
@@ -35,6 +54,8 @@ export default function Navbar() {
               </Link>
             </li>
           ))}
+          {user && <li><button onClick={async () => { await logout(); router.replace("/"); }} className="w-full whitespace-nowrap rounded-full px-3 py-2 text-left text-gray-500 hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-500 sm:w-auto sm:px-2.5 sm:py-1.5">ออก</button></li>}
+          {!user && loading && <li className="px-2 text-xs text-gray-400">…</li>}
         </ul>
       </nav>
     </header>

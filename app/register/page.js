@@ -1,9 +1,5 @@
-import ComingSoon from "@/components/layout/ComingSoon";
+import AuthForm from "@/features/auth/components/AuthForm";
 
 export default function RegisterPage() {
-  return (
-    <ComingSoon title="สมัครสมาชิก">
-      เร็ว ๆ นี้ เลือกได้ว่าจะสมัครเป็นนักเรียนหรือติวเตอร์
-    </ComingSoon>
-  );
+  return <AuthForm mode="register" />;
 }

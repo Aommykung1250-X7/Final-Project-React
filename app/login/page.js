@@ -1,13 +1,5 @@
-import Link from "next/link";
-import ComingSoon from "@/components/layout/ComingSoon";
+import AuthForm from "@/features/auth/components/AuthForm";
 
 export default function LoginPage() {
-  return (
-    <ComingSoon title="เข้าสู่ระบบ">
-      กำลังเชื่อมกับ Supabase เร็ว ๆ นี้ ยังไม่มีบัญชี?{" "}
-      <Link href="/register" className="text-rose-500 underline">
-        สมัครสมาชิก
-      </Link>
-    </ComingSoon>
-  );
+  return <AuthForm mode="login" />;
 }

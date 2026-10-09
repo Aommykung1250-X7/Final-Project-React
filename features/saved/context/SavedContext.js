@@ -1,60 +1,52 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import { useAuth } from "@/features/auth/context/AuthContext";
 
 const SavedContext = createContext(null);
-const STORAGE_KEY = "tutor-match:liked";
 
-// เก็บติวเตอร์ที่ปัดขวาไว้ใน localStorage ไปก่อน ภายหลังย้ายไปตาราง swipes ใน Supabase
 export function SavedProvider({ children }) {
+  const { user, loading: authLoading } = useAuth();
   const [likedIds, setLikedIds] = useState([]);
   const [passedIds, setPassedIds] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-      if (Array.isArray(saved)) setLikedIds(saved);
-    } catch {}
+  const refreshLikes = useCallback(async () => {
+    if (!user || user.role !== "student") { setLikedIds([]); setLoading(false); return; }
+    const supabase = getSupabaseClient();
+    if (!supabase) { setError("ยังไม่ได้ตั้งค่า Supabase"); return; }
+    setLoading(true);
+    const { data, error: queryError } = await supabase.from("likes").select("tutor_id").order("created_at", { ascending: false });
+    if (queryError) setError("โหลดรายการที่ถูกใจไม่สำเร็จ");
+    else { setError(""); setLikedIds((data || []).map((item) => item.tutor_id)); }
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => { if (!authLoading) refreshLikes(); }, [authLoading, refreshLikes]);
+
+  const like = useCallback(async (id) => {
+    if (!user || user.role !== "student") throw new Error("เข้าสู่ระบบในฐานะนักเรียนก่อน");
+    const supabase = getSupabaseClient();
+    const { error: insertError } = await supabase.from("likes").insert({ student_id: user.id, tutor_id: id });
+    if (insertError && insertError.code !== "23505") throw insertError;
+    setLikedIds((current) => current.includes(id) ? current : [...current, id]);
+  }, [user]);
+
+  const pass = useCallback((id) => setPassedIds((current) => current.includes(id) ? current : [...current, id]), []);
+
+  const unlike = useCallback(async (id) => {
+    const { error: deleteError } = await getSupabaseClient().from("likes").delete().eq("tutor_id", id);
+    if (deleteError) throw deleteError;
+    setLikedIds((current) => current.filter((value) => value !== id));
   }, []);
 
-  function persist(ids) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
-    } catch {}
-  }
+  const reset = useCallback(() => setPassedIds([]), []);
 
-  function like(id) {
-    setLikedIds((prev) => {
-      if (prev.includes(id)) return prev;
-      const next = [...prev, id];
-      persist(next);
-      return next;
-    });
-  }
-
-  function pass(id) {
-    setPassedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-  }
-
-  function unlike(id) {
-    setLikedIds((prev) => {
-      const next = prev.filter((x) => x !== id);
-      persist(next);
-      return next;
-    });
-  }
-
-  function reset() {
-    setPassedIds([]);
-    setLikedIds([]);
-    persist([]);
-  }
-
-  return (
-    <SavedContext.Provider value={{ likedIds, passedIds, like, pass, unlike, reset }}>
-      {children}
-    </SavedContext.Provider>
-  );
+  return <SavedContext.Provider value={{ likedIds, passedIds, like, pass, unlike, reset, loading, error, refreshLikes }}>
+    {children}
+  </SavedContext.Provider>;
 }
 
 export function useSaved() {
