@@ -22,6 +22,8 @@
 1. `supabase/migrations/20261009000100_auth_and_profiles.sql`
 2. `supabase/migrations/20261009000200_tutor_discovery_and_likes.sql`
 3. `supabase/migrations/20261009000300_conversations_and_messages.sql`
+4. `supabase/migrations/20261009000400_tutor_district.sql` (คอลัมน์อำเภอ/เขต)
+5. `supabase/migrations/20261009000500_tutor_accepts_requests.sql` (สถานะคำขอ: ติวเตอร์ต้องกดรับก่อนแชต)
 
 จากนั้นเปิด Database > Replication/Realtime settings แล้วปิด **Allow public access to channels** เพื่อบังคับ private-channel authorization ตาม RLS ใน migration แชตส่งข้อความเข้า `public.messages` ก่อน แล้ว trigger จะกระจายข้อความที่บันทึกแล้วผ่าน Supabase Realtime Broadcast ทาง WebSocket
 
@@ -31,28 +33,36 @@
 
 - สมัครและเข้าสู่ระบบเป็นนักเรียนหรือติวเตอร์ พร้อม session cookie แบบ HttpOnly
 - ติวเตอร์สร้างและแก้ไขโปรไฟล์ วิชา ระดับ ราคา รูปแบบการสอน จังหวัด ประวัติ และ URL รูป
-- นักเรียนค้นหาและปัดดูติวเตอร์ บันทึก/ลบรายการถูกใจที่เก็บในฐานข้อมูล
-- นักเรียนเริ่มแชตกับติวเตอร์ที่ถูกใจได้ และทั้งคู่เห็นข้อความที่บันทึกถาวรในห้องส่วนตัวแบบเรียลไทม์
+- คนที่ยังไม่ login ปัดดูการ์ดได้ ต้อง login ตอนกดถูกใจ
+- นักเรียนกรองติวเตอร์ตามวิชาและจังหวัด การ์ดแสดงอำเภอ/เขต
+- นักเรียนปัดขวา = ส่งคำขอ ติวเตอร์กดรับหรือปฏิเสธที่หน้า `/requests` (มีตัวเลขคำขอที่รออยู่บนเมนู) นักเรียนยกเลิกคำขอที่ยังรอได้
+- แชตเปิดได้หลังติวเตอร์รับคำขอแล้วเท่านั้น ทั้งคู่เห็นข้อความที่บันทึกถาวรในห้องส่วนตัวแบบเรียลไทม์ หัวห้องแสดงชื่อและรูปคู่สนทนา
+- `proxy.js` (middleware ที่เขียนเอง ไม่ใช้ Supabase Auth) กันหน้าที่ต้อง login และแยกสิทธิ์นักเรียน/ติวเตอร์
 - Row Level Security จำกัดการอ่านและเขียนข้อมูลตามบัญชีและบทบาท
 
 ## โครงสร้างหน้าและการ render
 
-โปรเจกต์ใช้ Next.js App Router และมีหน้าอย่างน้อย 8 routes: `/`, `/login`, `/register`, `/post`, `/posts/[id]`, `/saved`, `/chat` และ `/chat/[id]` นอกจากนี้ `app/api/auth/*/route.js` เป็น Route Handlers สำหรับงานบัญชี
+โปรเจกต์ใช้ Next.js App Router และมีหน้า 9 routes: `/`, `/login`, `/register`, `/profile`, `/tutors/[id]`, `/saved`, `/requests`, `/chat` และ `/chat/[id]` นอกจากนี้ `app/api/auth/*/route.js` เป็น Route Handlers สำหรับงานบัญชี
+
+โครงโฟลเดอร์: `app/` มีแค่ไฟล์ route (หน้าและ API) ส่วน UI และการดึงข้อมูลแยกตามฟีเจอร์ใน `features/` ได้แก่ `auth/` (สมัคร/เข้าสู่ระบบ), `tutors/` (การ์ด ปัด โปรไฟล์ติวเตอร์), `requests/` (ถูกใจ = คำขอ และการตอบรับ), `chat/` (แชตเรียลไทม์) แต่ละฟีเจอร์แบ่งเป็น `components/`, `context/` และ `data/` ส่วน `components/` เก็บ UI ที่ไม่ได้เป็นของฟีเจอร์ใดฟีเจอร์หนึ่ง: `components/layout/` คือโครงที่ครอบทุกหน้า (Navbar, Providers ที่ `app/layout.js` ใช้) และ `components/ui/` คือชิ้นเล็กที่หลายฟีเจอร์ใช้ร่วมกัน (Avatar, FieldError, สไตล์ช่องกรอก) และ `lib/` เป็นโค้ดกลางที่ไม่ใช่ UI (session, JWT, Supabase client) ส่วน `public/` เก็บไฟล์ static ที่เปิดได้จาก URL ตรงๆ: `logo.svg` (โลโก้บน Navbar), `favicon.svg` (ไอคอนแท็บเบราว์เซอร์) และ `images/tutor-placeholder.svg` (รูปสำรองเมื่อติวเตอร์ยังไม่ใส่รูป)
 
 | ไฟล์ | รูปแบบ | เหตุผลและวิธี render |
 | --- | --- | --- |
 | `app/layout.js` | Server Component | กำหนด metadata และโครงหน้า แล้วครอบ state providers ที่ต้องทำงานในเบราว์เซอร์ |
 | `app/page.js` | Server Component, SSR | อ่าน session จาก cookie และโหลดรายชื่อติวเตอร์ทุก request; ตั้ง `dynamic = "force-dynamic"` เพื่อไม่ cache ข้อมูลที่ขึ้นกับ session และให้ข้อมูลติวเตอร์เป็นปัจจุบัน |
-| `features/posts/data/tutor-server.js` | Server-only data access | ใช้ JWT ของนักเรียนปัจจุบันอ่านข้อมูลผ่าน Supabase RLS แล้วส่งข้อมูลเริ่มต้นให้หน้าแรก |
+| `features/tutors/data/map-tutor.js` | shared | รายชื่อคอลัมน์และการแปลงข้อมูลติวเตอร์ที่ใช้ร่วมกันทั้งฝั่ง server และ client เพิ่มคอลัมน์ใหม่แก้ที่เดียว |
+| `features/tutors/data/tutor-server.js` | Server-only data access | ใช้ JWT ของนักเรียนปัจจุบันอ่านข้อมูลผ่าน Supabase RLS แล้วส่งข้อมูลเริ่มต้นให้หน้าแรก; ถ้ายังไม่ login จะอ่านเฉพาะข้อมูลบนการ์ดด้วย admin client บนเซิร์ฟเวอร์ |
 | `app/login/page.js`, `app/register/page.js` | Server Components | เป็นตัวประกอบหน้าและเลือกโหมด ส่วนฟอร์มที่มี state และ validation อยู่ใน Client Component |
 | `features/auth/components/AuthForm.js` | Client Component | ใช้ React Hook Form, Zod resolver และ state สำหรับเลือกประเภทบัญชี แสดง validation และส่งข้อมูลไป Route Handler |
 | `features/auth/schemas.js` | shared validation schemas | กำหนดกติกา Zod ให้ฟอร์มและแปลงรายการวิชา/ระดับชั้นจากข้อความเป็น array ก่อนส่ง API |
-| `app/post/page.js` | Client Component | โหลดและแก้โปรไฟล์ติวเตอร์ผ่าน Supabase และใช้ React Hook Form + Zod ตรวจค่าก่อนบันทึก |
-| `app/posts/[id]/page.js`, `app/saved/page.js`, `app/chat/page.js`, `app/chat/[id]/page.js` | Client Components | ใช้ session context, state, การกดถูกใจ/เริ่มแชต และ subscription ของ Realtime ซึ่งต้องทำงานในเบราว์เซอร์ |
-| `features/posts/components/SwipeDeck.js`, `features/posts/components/TutorCard.js` | Client Components | รองรับการปัด การกรอง และ animation ที่ตอบสนองต่อการกระทำของผู้ใช้; ตัวการ์ดใช้ข้อมูล SSR ที่ส่งมาจาก `app/page.js` |
-| `features/auth/context/AuthContext.js`, `features/saved/context/SavedContext.js` | Client Context | แชร์ผู้ใช้ รายการถูกใจ และสถานะการโต้ตอบระหว่าง navigation โดยไม่ต้องส่ง props ผ่านทุกหน้า |
-| `components/layout/Navbar.js`, `providers/Providers.js` | Client Components | เมนูนำทางและ providers ต้องอ่าน Context/เส้นทางปัจจุบันและตอบสนองต่อการกด; Navbar ยุบเป็นเมนูบนจอเล็ก |
+| `app/profile/page.js`, `app/saved/page.js`, `app/requests/page.js`, `app/tutors/[id]/page.js` | Server Components | เป็นเปลือกของหน้า ไม่มี state; `tutors/[id]` อ่านค่า `id` จาก URL บนเซิร์ฟเวอร์แล้วส่งเป็น prop ให้ Client Component |
+| `features/tutors/components/TutorEditor.js` | Client Component | โหลดและแก้โปรไฟล์ติวเตอร์ผ่าน Supabase และใช้ React Hook Form + Zod ตรวจค่าก่อนบันทึก |
+| `features/tutors/components/TutorProfile.js`, `features/requests/components/SavedList.js`, `features/requests/components/RequestList.js`, `app/chat/page.js`, `app/chat/[id]/page.js` | Client Components | ใช้ session context, state, การกดถูกใจ/เริ่มแชต และ subscription ของ Realtime ซึ่งต้องทำงานในเบราว์เซอร์ |
+| `features/tutors/components/SwipeDeck.js`, `features/tutors/components/TutorCard.js` | Client Components | รองรับการปัด การกรอง และ animation ที่ตอบสนองต่อการกระทำของผู้ใช้; ตัวการ์ดใช้ข้อมูล SSR ที่ส่งมาจาก `app/page.js` |
+| `features/auth/context/AuthContext.js`, `features/requests/context/SavedContext.js` | Client Context | แชร์ผู้ใช้ รายการถูกใจ และสถานะการโต้ตอบระหว่าง navigation โดยไม่ต้องส่ง props ผ่านทุกหน้า |
+| `components/layout/Navbar.js`, `components/layout/Providers.js` | Client Components | เมนูนำทางและ providers ต้องอ่าน Context/เส้นทางปัจจุบันและตอบสนองต่อการกด; Navbar ยุบเป็นเมนูบนจอเล็ก |
 | `app/api/auth/*/route.js` | Server Route Handlers | แฮช/ตรวจรหัสผ่าน เขียน session cookie แบบ HttpOnly และเรียกใช้ secret ที่ห้ามส่งไปเบราว์เซอร์ |
+| `proxy.js` | Proxy (middleware ของ Next.js 16) | ทำงานก่อน render ทุกหน้า อ่าน cookie `tutormatch_session` แล้วตรวจกับตาราง sessions: ยังไม่ login ถูกพาไป `/login?next=...`, นักเรียน/ติวเตอร์ถูกกันออกจากหน้าของอีกบทบาท |
 
 หน้าแรกทำ SSR เพราะข้อมูลติวเตอร์และสิทธิ์การอ่านขึ้นกับ session ของนักเรียนและเปลี่ยนแปลงได้ จึงอ่านใหม่ทุก request ผ่าน RLS แทนการ cache ข้ามผู้ใช้ ส่วน swipe และการบันทึกรายการถูกใจยังทำงานฝั่ง client เพื่อให้ตอบสนองทันที
 

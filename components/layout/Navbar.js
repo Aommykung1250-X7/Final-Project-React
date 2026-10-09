@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSaved } from "@/features/saved/context/SavedContext";
+import { useSaved } from "@/features/requests/context/SavedContext";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -14,17 +15,37 @@ export default function Navbar() {
   const { likedIds } = useSaved();
   const { user, loading, logout } = useAuth();
   const links = user?.role === "tutor"
-    ? [{ href: "/post", label: "โปรไฟล์" }, { href: "/chat", label: "แชต" }]
+    ? [{ href: "/requests", label: "คำขอ" }, { href: "/profile", label: "โปรไฟล์" }, { href: "/chat", label: "แชต" }]
     : user?.role === "student"
       ? [{ href: "/", label: "ค้นหา" }, { href: "/saved", label: "ถูกใจ" }, { href: "/chat", label: "แชต" }]
       : [{ href: "/", label: "ค้นหา" }, { href: "/login", label: "เข้าสู่ระบบ" }, { href: "/register", label: "สมัคร" }];
 
   useEffect(() => { setMenuOpen(false); }, [pathname]);
 
+  // Tutors see how many requests are waiting. Re-checked on page change, focus, and every 15s.
+  const [pendingCount, setPendingCount] = useState(0);
+  useEffect(() => {
+    if (user?.role !== "tutor") { setPendingCount(0); return; }
+    let alive = true;
+    async function loadCount() {
+      const supabase = getSupabaseClient();
+      if (!supabase) return;
+      const { count, error } = await supabase.from("likes")
+        .select("student_id", { count: "exact", head: true }).eq("status", "pending");
+      if (alive && !error) setPendingCount(count || 0);
+    }
+    loadCount();
+    const timer = setInterval(loadCount, 15000);
+    window.addEventListener("focus", loadCount);
+    return () => { alive = false; clearInterval(timer); window.removeEventListener("focus", loadCount); };
+  }, [user?.role, pathname]);
+
   return (
     <header className="sticky top-0 z-20 border-b border-rose-100 bg-white/90 backdrop-blur">
       <nav className="relative mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-        <Link href="/" className="shrink-0 text-lg font-bold text-rose-500">
+        <Link href="/" className="flex shrink-0 items-center gap-2 text-lg font-bold text-rose-500">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="" width={28} height={28} />
           TutorMatch
         </Link>
         <button
@@ -51,6 +72,11 @@ export default function Navbar() {
               >
                 {l.label}
                 {l.href === "/saved" && likedIds.length > 0 && ` (${likedIds.length})`}
+                {l.href === "/requests" && pendingCount > 0 && (
+                  <span aria-label={`${pendingCount} คำขอใหม่`} className={`ml-1 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${pathname === l.href ? "bg-white text-rose-500" : "bg-rose-500 text-white"}`}>
+                    {pendingCount}
+                  </span>
+                )}
               </Link>
             </li>
           ))}

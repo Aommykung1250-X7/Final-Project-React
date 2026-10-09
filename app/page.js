@@ -1,5 +1,5 @@
-import SwipeDeck from "@/features/posts/components/SwipeDeck";
-import { listTutorsForCurrentStudent } from "@/features/posts/data/tutor-server";
+import SwipeDeck from "@/features/tutors/components/SwipeDeck";
+import { listTutorsForCurrentStudent } from "@/features/tutors/data/tutor-server";
 
 // Tutor availability and profile details change often, so render this page per request.
 export const dynamic = "force-dynamic";

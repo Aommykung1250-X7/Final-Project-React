@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Avatar from "@/components/ui/Avatar";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getConversation, listMessages, sendMessage, subscribeToMessages } from "@/features/chat/data/chat-service";
+import { getChatPartner, getConversation, listMessages, sendMessage, subscribeToMessages } from "@/features/chat/data/chat-service";
 
 function mergeMessages(current, incoming) {
   const byId = new Map(current.map((message) => [message.id, message]));
@@ -12,6 +13,7 @@ function mergeMessages(current, incoming) {
 
 export default function ChatRoom({ conversationId, user }) {
   const [conversation, setConversation] = useState(null);
+  const [partner, setPartner] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
@@ -24,9 +26,10 @@ export default function ChatRoom({ conversationId, user }) {
     const [room, history] = await Promise.all([getConversation(conversationId), listMessages(conversationId)]);
     if (!room) throw new Error("ไม่พบบทสนทนาหรือคุณไม่มีสิทธิ์เข้าถึง");
     setConversation(room);
+    getChatPartner(room, user).then(setPartner).catch(() => {});
     setMessages((current) => mergeMessages(current, history));
     setError("");
-  }, [conversationId]);
+  }, [conversationId, user]);
 
   useEffect(() => {
     let alive = true;
@@ -62,8 +65,17 @@ export default function ChatRoom({ conversationId, user }) {
 
   return <section className="mx-auto flex h-[min(75vh,760px)] max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-sm">
     <header className="flex items-center justify-between border-b border-rose-100 px-4 py-3">
-      <div><Link href="/chat" className="mr-2 text-rose-500">‹</Link><strong>แชต TutorMatch</strong></div>
-      <span className="text-xs text-gray-500">{connection}</span>
+      <div className="flex min-w-0 items-center gap-3">
+        <Link href="/chat" aria-label="กลับไปรายการแชต" className="text-xl text-rose-500">‹</Link>
+        <Avatar src={partner?.photo} name={partner?.name} className="h-10 w-10" />
+        <div className="min-w-0">
+          {partner?.role === "tutor"
+            ? <Link href={`/tutors/${partner.id}`} className="block truncate font-semibold hover:underline">{partner.name}</Link>
+            : <strong className="block truncate">{partner?.name || "กำลังโหลด…"}</strong>}
+          <p className="text-xs text-gray-500">{partner ? (partner.role === "tutor" ? "ติวเตอร์" : "นักเรียน") : ""} · คุณคือ {user.displayName || "คุณ"}</p>
+        </div>
+      </div>
+      <span className={`shrink-0 text-xs ${connection === "เชื่อมต่อแล้ว" ? "text-green-600" : "text-gray-500"}`}>● {connection}</span>
     </header>
     <div className="flex-1 space-y-3 overflow-y-auto bg-rose-50/60 p-4">
       {messages.length === 0 && <p className="py-8 text-center text-sm text-gray-500">เริ่มคุยเรื่องวิชา เวลาเรียน และราคาได้เลย</p>}

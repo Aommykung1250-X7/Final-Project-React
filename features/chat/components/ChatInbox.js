@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Avatar from "@/components/ui/Avatar";
 import { useEffect, useState } from "react";
 import { listConversations } from "@/features/chat/data/chat-service";
 
@@ -22,8 +23,7 @@ export default function ChatInbox({ user }) {
     {!conversations.length ? <div className="rounded-2xl bg-white p-6 text-gray-600">ยังไม่มีบทสนทนา {user.role === "student" && <Link href="/saved" className="text-rose-600 underline">เลือกติวเตอร์ที่ถูกใจแล้วทักแชต</Link>}</div> :
       <ul className="space-y-3">{conversations.map((conversation) => <li key={conversation.id}>
         <Link href={`/chat/${conversation.id}`} className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm hover:shadow">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={conversation.other?.avatar_url || "https://placehold.co/100x100/fce7f3/9d174d?text=TM"} alt="" className="h-12 w-12 rounded-full object-cover" />
+          <Avatar src={conversation.other?.avatar_url} name={conversation.other?.display_name} />
           <span className="min-w-0 flex-1"><strong className="block">{conversation.other?.display_name || "สมาชิก TutorMatch"}</strong>
             <span className="block truncate text-sm text-gray-500">{conversation.latestMessage?.body || "เริ่มคุยเรื่องเวลาและราคาเรียนได้เลย"}</span></span>
           <time className="text-xs text-gray-400">{new Date(conversation.latestMessage?.created_at || conversation.created_at).toLocaleDateString("th-TH")}</time>

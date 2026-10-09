@@ -28,6 +28,7 @@ export async function POST(request) {
         || !Number.isInteger(pricePerHour) || pricePerHour < 0 || pricePerHour > 100000
         || !boundedString(profile.bio, 2000) || !boundedString(profile.mode, 80)
         || !boundedString(profile.province, 100)
+        || !boundedString(profile.district, 100)
         || (profile.photo && (typeof profile.photo !== "string" || profile.photo.length > 2048))) {
         return NextResponse.json({ error: "กรุณากรอกข้อมูลติวเตอร์ให้ครบและถูกต้อง" }, { status: 400 });
       }

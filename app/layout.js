@@ -1,10 +1,12 @@
 import "./globals.css";
-import Providers from "@/providers/Providers";
+import Providers from "@/components/layout/Providers";
 import Navbar from "@/components/layout/Navbar";
 
 export const metadata = {
   title: "TutorMatch - ปัดหาติวเตอร์ที่ใช่",
   description: "เว็บหาติวเตอร์ส่วนตัวแบบปัดการ์ด",
+  // Files in public/ are served from the site root, so /favicon.svg is public/favicon.svg.
+  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({ children }) {

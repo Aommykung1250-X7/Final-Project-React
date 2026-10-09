@@ -7,12 +7,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, registrationSchema } from "@/features/auth/schemas";
 import { useAuth } from "@/features/auth/context/AuthContext";
-
-const inputClass = "mt-1 w-full rounded-xl border border-rose-200 bg-white px-4 py-3 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100";
-
-function FieldError({ id, message }) {
-  return message ? <p id={id} className="mt-1 text-sm text-red-700">{message}</p> : null;
-}
+import FieldError from "@/components/ui/FieldError";
+import { inputClass } from "@/components/ui/form-styles";
 
 export default function AuthForm({ mode }) {
   const isRegister = mode === "register";
@@ -43,7 +39,9 @@ export default function AuthForm({ mode }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "ดำเนินการไม่สำเร็จ");
       const user = await refreshUser();
-      router.replace(user?.role === "tutor" ? "/post" : "/");
+      // proxy.js sends people to /login?next=/page when a page needs login; go back there afterwards.
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.replace(next?.startsWith("/") && !next.startsWith("//") ? next : user?.role === "tutor" ? "/requests" : "/");
     } catch (error) {
       setSubmitError(error?.message || "ดำเนินการไม่สำเร็จ กรุณาลองอีกครั้ง");
     }
@@ -101,10 +99,16 @@ export default function AuthForm({ mode }) {
             <FieldError message={errors.tutorProfile?.mode?.message} />
           </label>
         </div>
-        <label className="block text-sm">จังหวัด
-          <input {...register("tutorProfile.province")} maxLength={100} aria-invalid={!!errors.tutorProfile?.province} className={inputClass} />
-          <FieldError message={errors.tutorProfile?.province?.message} />
-        </label>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block text-sm">จังหวัด
+            <input {...register("tutorProfile.province")} maxLength={100} aria-invalid={!!errors.tutorProfile?.province} className={inputClass} />
+            <FieldError message={errors.tutorProfile?.province?.message} />
+          </label>
+          <label className="block text-sm">อำเภอ/เขต
+            <input {...register("tutorProfile.district")} maxLength={100} aria-invalid={!!errors.tutorProfile?.district} className={inputClass} />
+            <FieldError message={errors.tutorProfile?.district?.message} />
+          </label>
+        </div>
         <label className="block text-sm">แนะนำตัว
           <textarea {...register("tutorProfile.bio")} maxLength={2000} rows={3} aria-invalid={!!errors.tutorProfile?.bio} className={inputClass} />
           <FieldError message={errors.tutorProfile?.bio?.message} />

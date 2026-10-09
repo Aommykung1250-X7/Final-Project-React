@@ -28,6 +28,7 @@ const tutorProfileSchema = z.object({
   pricePerHour: z.number({ error: "กรุณากรอกราคาเป็นตัวเลข" }).int("ราคาต้องเป็นจำนวนเต็ม").min(0, "ราคาต้องไม่ติดลบ").max(100000, "ราคาสูงสุด 100,000 บาท"),
   mode: z.string().trim().min(1, "กรุณากรอกรูปแบบการสอน").max(80),
   province: z.string().trim().min(1, "กรุณากรอกจังหวัด").max(100),
+  district: z.string().trim().min(1, "กรุณากรอกอำเภอ/เขต").max(100),
   bio: z.string().trim().min(1, "กรุณาแนะนำตัว").max(2000, "ข้อความแนะนำตัวต้องไม่เกิน 2,000 ตัวอักษร"),
   photo: photoUrl,
 });
@@ -49,6 +50,7 @@ export const tutorEditorSchema = z.object({
   pricePerHour: z.number({ error: "กรุณากรอกราคาเป็นตัวเลข" }).int("ราคาต้องเป็นจำนวนเต็ม").min(0, "ราคาต้องไม่ติดลบ").max(100000, "ราคาสูงสุด 100,000 บาท"),
   mode: z.string().trim().min(1, "กรุณากรอกรูปแบบการสอน").max(80),
   province: z.string().trim().min(1, "กรุณากรอกจังหวัด").max(100),
+  district: z.string().trim().min(1, "กรุณากรอกอำเภอ/เขต").max(100),
   bio: z.string().trim().min(1, "กรุณาแนะนำตัว").max(2000, "ข้อความแนะนำตัวต้องไม่เกิน 2,000 ตัวอักษร"),
   photo: photoUrl,
 });

@@ -80,3 +80,19 @@ export function subscribeToMessages(conversationId, onMessage, onStatus) {
     .subscribe((status) => onStatus?.(status));
   return () => { supabase.removeChannel(channel); };
 }
+
+// Name and photo of the other person in a conversation, for the chat header.
+export async function getChatPartner(conversation, user) {
+  const supabase = client();
+  const otherId = user.role === "student" ? conversation.tutor_id : conversation.student_id;
+  const { data: profile, error } = await supabase.from("profiles")
+    .select("display_name, avatar_url").eq("user_id", otherId).maybeSingle();
+  if (error) throw error;
+  let photo = profile?.avatar_url || null;
+  if (!photo && user.role === "student") {
+    const { data: tutor } = await supabase.from("tutor_profiles").select("photo_url").eq("user_id", otherId).maybeSingle();
+    photo = tutor?.photo_url || null;
+  }
+  const name = profile?.display_name || (user.role === "student" ? "ติวเตอร์" : "นักเรียน");
+  return { id: otherId, name, photo, role: user.role === "student" ? "tutor" : "student" };
+}

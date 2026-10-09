@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 const AuthContext = createContext(null);
 
@@ -19,6 +19,27 @@ export function AuthProvider({ children }) {
     } finally { setLoading(false); }
   }, []);
   useEffect(() => { refreshUser(); }, [refreshUser]);
+
+  // Tabs in one browser share the session cookie. If another tab logged in as someone else,
+  // reload this tab when it regains focus so it never acts with the wrong account.
+  const userIdRef = useRef(undefined);
+  useEffect(() => { if (!loading) userIdRef.current = user?.id ?? null; }, [user, loading]);
+  useEffect(() => {
+    async function checkAccount() {
+      if (document.visibilityState !== "visible" || userIdRef.current === undefined) return;
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        const data = await response.json();
+        if ((data.user?.id ?? null) !== userIdRef.current) window.location.reload();
+      } catch {}
+    }
+    window.addEventListener("focus", checkAccount);
+    document.addEventListener("visibilitychange", checkAccount);
+    return () => {
+      window.removeEventListener("focus", checkAccount);
+      document.removeEventListener("visibilitychange", checkAccount);
+    };
+  }, []);
   const logout = useCallback(async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
