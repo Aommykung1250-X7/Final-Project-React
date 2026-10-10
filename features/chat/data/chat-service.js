@@ -60,6 +60,18 @@ export async function listMessages(conversationId) {
   return data || [];
 }
 
+export async function listMessagesAfter(conversationId, createdAt) {
+  const query = client().from("messages")
+    .select("id, conversation_id, sender_id, body, created_at")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: true }).limit(500);
+  const { data, error } = createdAt
+    ? await query.gte("created_at", createdAt)
+    : await query;
+  if (error) throw error;
+  return data || [];
+}
+
 export async function sendMessage(conversationId, senderId, body) {
   const cleanBody = body.trim();
   if (!cleanBody || cleanBody.length > 4000) throw new Error("ข้อความต้องมี 1–4000 ตัวอักษร");
@@ -85,14 +97,15 @@ export function subscribeToMessages(conversationId, onMessage, onStatus) {
 export async function getChatPartner(conversation, user) {
   const supabase = client();
   const otherId = user.role === "student" ? conversation.tutor_id : conversation.student_id;
-  const { data: profile, error } = await supabase.from("profiles")
+  const profileRequest = supabase.from("profiles")
     .select("display_name, avatar_url").eq("user_id", otherId).maybeSingle();
+  const tutorPhotoRequest = user.role === "student"
+    ? supabase.from("tutor_profiles").select("photo_url").eq("user_id", otherId).maybeSingle()
+    : Promise.resolve({ data: null, error: null });
+  const [{ data: profile, error }, { data: tutor }] = await Promise.all([profileRequest, tutorPhotoRequest]);
   if (error) throw error;
   let photo = profile?.avatar_url || null;
-  if (!photo && user.role === "student") {
-    const { data: tutor } = await supabase.from("tutor_profiles").select("photo_url").eq("user_id", otherId).maybeSingle();
-    photo = tutor?.photo_url || null;
-  }
+  if (!photo && user.role === "student") photo = tutor?.photo_url || null;
   const name = profile?.display_name || (user.role === "student" ? "ติวเตอร์" : "นักเรียน");
   return { id: otherId, name, photo, role: user.role === "student" ? "tutor" : "student" };
 }

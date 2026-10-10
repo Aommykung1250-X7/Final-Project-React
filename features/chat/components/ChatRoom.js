@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Avatar from "@/components/ui/Avatar";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getChatPartner, getConversation, listMessages, sendMessage, subscribeToMessages } from "@/features/chat/data/chat-service";
+import { getChatPartner, getConversation, listMessages, listMessagesAfter, sendMessage, subscribeToMessages } from "@/features/chat/data/chat-service";
 
 function mergeMessages(current, incoming) {
   const byId = new Map(current.map((message) => [message.id, message]));
@@ -21,29 +21,55 @@ export default function ChatRoom({ conversationId, user }) {
   const [connection, setConnection] = useState("กำลังเชื่อมต่อ");
   const [error, setError] = useState("");
   const bottomRef = useRef(null);
+  const historyWatermarkRef = useRef(null);
+
+  const receiveMessages = useCallback((incoming) => {
+    setMessages((current) => mergeMessages(current, incoming));
+  }, []);
 
   const reload = useCallback(async () => {
     const [room, history] = await Promise.all([getConversation(conversationId), listMessages(conversationId)]);
     if (!room) throw new Error("ไม่พบบทสนทนาหรือคุณไม่มีสิทธิ์เข้าถึง");
     setConversation(room);
     getChatPartner(room, user).then(setPartner).catch(() => {});
-    setMessages((current) => mergeMessages(current, history));
+    historyWatermarkRef.current = history.at(-1)?.created_at || null;
+    receiveMessages(history);
     setError("");
-  }, [conversationId, user]);
+  }, [conversationId, receiveMessages, user]);
 
   useEffect(() => {
     let alive = true;
-    reload().catch((loadError) => { if (alive) setError(loadError.message || "เปิดห้องแชตไม่สำเร็จ"); })
+    let initialLoad;
+    let wasSubscribed = false;
+    historyWatermarkRef.current = null;
+    initialLoad = reload().catch((loadError) => { if (alive) setError(loadError.message || "เปิดห้องแชตไม่สำเร็จ"); })
       .finally(() => { if (alive) setLoading(false); });
     const unsubscribe = subscribeToMessages(conversationId, (message) => {
-      if (alive) setMessages((current) => mergeMessages(current, [message]));
+      if (alive) receiveMessages([message]);
     }, (status) => {
       if (!alive) return;
-      if (status === "SUBSCRIBED") { setConnection("เชื่อมต่อแล้ว"); reload().catch(() => {}); }
-      else if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) setConnection("กำลังเชื่อมต่อใหม่");
+      if (status === "SUBSCRIBED") {
+        setConnection("เชื่อมต่อแล้ว");
+        if (!wasSubscribed) {
+          wasSubscribed = true;
+          initialLoad.then(async () => {
+            if (!alive) return;
+            try {
+              const missedMessages = await listMessagesAfter(conversationId, historyWatermarkRef.current);
+              receiveMessages(missedMessages);
+              const lastCaughtUpMessage = missedMessages.at(-1);
+              if (lastCaughtUpMessage?.created_at) historyWatermarkRef.current = lastCaughtUpMessage.created_at;
+            }
+            catch { /* Live delivery remains active; a later reconnect can retry the catch-up. */ }
+          });
+        }
+      } else if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) {
+        wasSubscribed = false;
+        setConnection("กำลังเชื่อมต่อใหม่");
+      }
     });
     return () => { alive = false; unsubscribe(); };
-  }, [conversationId, reload]);
+  }, [conversationId, receiveMessages, reload]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -54,7 +80,7 @@ export default function ChatRoom({ conversationId, user }) {
     setError("");
     try {
       const message = await sendMessage(conversationId, user.id, draft);
-      setMessages((current) => mergeMessages(current, [message]));
+      receiveMessages([message]);
       setDraft("");
     } catch (sendError) { setError(sendError.message || "ส่งข้อความไม่สำเร็จ กรุณาลองอีกครั้ง"); }
     finally { setSending(false); }

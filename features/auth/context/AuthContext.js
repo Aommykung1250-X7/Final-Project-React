@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { clearCachedSupabaseToken } from "@/lib/supabase/client";
 
 const AuthContext = createContext(null);
 
@@ -41,8 +42,12 @@ export function AuthProvider({ children }) {
     };
   }, []);
   const logout = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    setUser(null);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      clearCachedSupabaseToken();
+      setUser(null);
+    }
   }, []);
   return <AuthContext.Provider value={{ user, loading, refreshUser, logout }}>{children}</AuthContext.Provider>;
 }
