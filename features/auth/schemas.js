@@ -1,6 +1,12 @@
 import { z } from "zod";
+import { registrationEmailError, validEmail } from "@/lib/auth/input";
 
 const email = z.string().trim().email("กรุณากรอกอีเมลให้ถูกต้อง").max(254, "อีเมลยาวเกินไป");
+const registrationEmail = email.superRefine((value, context) => {
+  if (!validEmail(value)) return;
+  const error = registrationEmailError(value);
+  if (error) context.addIssue({ code: "custom", message: error });
+});
 const password = z.string().min(10, "รหัสผ่านต้องมีอย่างน้อย 10 ตัวอักษร").max(128, "รหัสผ่านยาวเกินไป");
 const profileName = z.string().trim().min(1, "กรุณากรอกชื่อที่แสดง").max(80, "ชื่อต้องไม่เกิน 80 ตัวอักษร");
 
@@ -17,7 +23,7 @@ const photoUrl = z.union([
 ]);
 
 const registrationFields = {
-  email,
+  email: registrationEmail,
   password,
   displayName: profileName,
 };

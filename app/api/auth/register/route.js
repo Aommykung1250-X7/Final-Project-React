@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { hashPassword, validatePassword } from "@/lib/auth/password";
-import { boundedString, normalizeEmail, validEmail } from "@/lib/auth/input";
+import { boundedString, normalizeEmail, registrationEmailError } from "@/lib/auth/input";
 import { createSession } from "@/lib/auth/session";
 import { getAdminSupabase } from "@/lib/supabase/admin";
 
@@ -10,9 +10,10 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const email = normalizeEmail(body.email);
+    const emailError = registrationEmailError(email);
     const role = body.role;
     const passwordError = validatePassword(body.password);
-    if (!validEmail(email)) return NextResponse.json({ error: "กรุณากรอกอีเมลให้ถูกต้อง" }, { status: 400 });
+    if (emailError) return NextResponse.json({ error: emailError }, { status: 400 });
     if (passwordError) return NextResponse.json({ error: passwordError }, { status: 400 });
     if (!boundedString(body.displayName, 80)) return NextResponse.json({ error: "กรุณากรอกชื่อ (ไม่เกิน 80 ตัวอักษร)" }, { status: 400 });
     if (role !== "student" && role !== "tutor") return NextResponse.json({ error: "กรุณาเลือกประเภทบัญชี" }, { status: 400 });
