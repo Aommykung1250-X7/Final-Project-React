@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
-import { normalizeEmail, validEmail } from "@/lib/auth/input";
+import { loginSchema } from "@/features/auth/schemas";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
 import { getAdminSupabase } from "@/lib/supabase/admin";
@@ -22,9 +22,9 @@ function keyedValue(value) {
 
 export async function POST(request) {
   try {
-    const body = await request.json();
-    const email = normalizeEmail(body.email);
-    if (!validEmail(email) || typeof body.password !== "string" || body.password.length > 128) return invalidCredentials();
+    const parsed = loginSchema.safeParse(await request.json());
+    if (!parsed.success) return invalidCredentials();
+    const { email, password } = parsed.data;
     const forwardedFor = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
     const emailKey = keyedValue(`email:${email}`);
     const ipKey = keyedValue(`ip:${forwardedFor}`);
@@ -37,7 +37,7 @@ export async function POST(request) {
     const { data: account, error: accountError } = await admin.from("accounts").select("id, password_hash")
       .eq("email", email).maybeSingle();
     check(accountError, "accounts");
-    const passwordMatches = account ? await verifyPassword(account.password_hash, body.password).catch(() => false) : false;
+    const passwordMatches = account ? await verifyPassword(account.password_hash, password).catch(() => false) : false;
     if (!passwordMatches) {
       const { error: failureError } = await admin.rpc("record_login_failure", { p_email_key: emailKey, p_ip_key: ipKey });
       check(failureError, "record_login_failure");
